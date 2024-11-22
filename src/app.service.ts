@@ -109,8 +109,8 @@ export class AppService {
     });
 
     const account = await toSafeSmartAccount({
-      client: publicClient,
-      owner: privateKeyToAccount(privateKey),
+      client: publicClient as Client,
+      owners: [privateKeyToAccount(privateKey)],
       entryPoint: {
         address: entryPoint07Address,
         version: '0.7',

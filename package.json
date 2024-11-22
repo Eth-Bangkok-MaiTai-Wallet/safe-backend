@@ -2,7 +2,8 @@
   "name": "backend",
   "version": "0.0.1",
   "description": "",
-  "author": "",
+  "type": "module",
+  "author": "0xtiki",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
