@@ -9,4 +9,14 @@ export class AppController {
   getHello(): Promise<string> {
     return this.appService.getHello();
   }
+
+  @Get('send-user-op')
+  sendUserOp(): Promise<string> {
+    return this.appService.sendUserOperation();
+  }
+
+  @Get('send-user-op2')
+  sendUserOp2(): Promise<string> {
+    return this.appService.sendUserOperation2();
+  }
 }

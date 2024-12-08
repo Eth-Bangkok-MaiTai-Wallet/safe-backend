@@ -10,6 +10,7 @@ import {
   entryPoint07Address,
 } from 'viem/account-abstraction';
 import { createSmartAccountClient } from 'permissionless';
+import { ConfigService } from '@nestjs/config';
 // import { getAddress, maxUint256, parseAbi } from 'viem';
 // import { EntryPointVersion } from 'viem/account-abstraction';
 
@@ -17,6 +18,9 @@ import { createSmartAccountClient } from 'permissionless';
 
 @Injectable()
 export class AppService {
+
+  constructor(private configService: ConfigService) {}
+
   async getHello(): Promise<string> {
     // const blockNumber = await this.getBlockNumber();
 
@@ -35,7 +39,7 @@ export class AppService {
   }
 
   async sendUserOperation() {
-    const apiKey = process.env.PIMLICO_API_KEY;
+    const apiKey = this.configService.get('PIMLICO_API_KEY');
     if (!apiKey) throw new Error('Missing PIMLICO_API_KEY');
 
     const privateKey = generatePrivateKey();
@@ -56,7 +60,7 @@ export class AppService {
     });
 
     const account = await toSafeSmartAccount({
-      client: publicClient as Client,
+      client: publicClient,
       owners: [privateKeyToAccount(privateKey)],
       entryPoint: {
         address: entryPoint07Address,
@@ -68,6 +72,14 @@ export class AppService {
     console.log(
       `Smart account address: https://sepolia.etherscan.io/address/${account.address}`,
     );
+
+    const encodedCalls = await account.encodeCalls([
+      {
+        to: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+        value: 10000000000n,
+      },
+    ]);
+
 
     const smartAccountClient = createSmartAccountClient({
       account,
@@ -82,12 +94,12 @@ export class AppService {
     });
 
     const txHash = await smartAccountClient.sendTransaction({
-      account: account.address,
+      account,
       to: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
-      value: 0n,
-      data: '0x1234',
-      kzg: undefined,
-      chain: sepolia,
+      value: 10000000000n,
+      // data: '0x1234',
+      // kzg: undefined,
+      // chain: sepolia,
     });
 
     console.log(
@@ -98,7 +110,7 @@ export class AppService {
   }
 
   async sendUserOperation2() {
-    const apiKey = process.env.PIMLICO_API_KEY;
+    const apiKey = this.configService.get('PIMLICO_API_KEY');
     if (!apiKey) throw new Error('Missing PIMLICO_API_KEY');
 
     const privateKey = generatePrivateKey();
@@ -281,5 +293,7 @@ export class AppService {
         `User operation included: https://sepolia.etherscan.io/tx/${receipt2.receipt.transactionHash}`,
       );
     }
+
+    return 'done';
   }
 }
