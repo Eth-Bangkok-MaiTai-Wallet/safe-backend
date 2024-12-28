@@ -6,7 +6,6 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { toSafeSmartAccount } from 'permissionless/accounts';
 import {
   createBundlerClient,
-  // createBundlerClient,
   entryPoint07Address,
 } from 'viem/account-abstraction';
 import { createSmartAccountClient } from 'permissionless';
@@ -270,28 +269,51 @@ export class AppService {
         `User operation included: https://sepolia.etherscan.io/tx/${receipt.receipt.transactionHash}`,
       );
 
-      const txHashMultiple = await bundlerClient.sendUserOperation({
-        calls: [
-          {
-            to: '0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc',
-            value: 0n,
-            data: '0x1234',
-          },
-          {
-            to: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
-            value: 0n,
-            data: '0x1234',
-          },
-        ],
-      });
+      // const txHashMultiple = await bundlerClient.sendUserOperation({
+      //   calls: [
+      //     // {
+      //     //   to: '0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc',
+      //     //   value: 0n,
+      //     //   data: '0x1234',
+      //     // },
+      //     {
+      //       to: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+      //       value: 0n,
+      //       data: '0x1234',
+      //     },
+      //     {
+      //       abi: [
+      //         {
+      //           inputs: [],
+      //           name: 'getLastGreeter',
+      //           outputs: [
+      //             { internalType: 'address', name: '', type: 'address' },
+      //           ],
+      //           stateMutability: 'view',
+      //           type: 'function',
+      //         },
+      //         {
+      //           inputs: [],
+      //           name: 'greet',
+      //           outputs: [],
+      //           stateMutability: 'nonpayable',
+      //           type: 'function',
+      //         },
+      //       ],
+      //       functionName: 'greet',
+      //       args: [],
+      //       to: '0x6D7A849791a8E869892f11E01c2A5f3b25a497B6',
+      //     },
+      //   ],
+      // });
 
-      const receipt2 = await bundlerClient.getUserOperationReceipt({
-        hash: txHashMultiple,
-      });
+      // const receipt2 = await bundlerClient.getUserOperationReceipt({
+      //   hash: txHashMultiple,
+      // });
 
-      console.log(
-        `User operation included: https://sepolia.etherscan.io/tx/${receipt2.receipt.transactionHash}`,
-      );
+      // console.log(
+      //   `User operation included: https://sepolia.etherscan.io/tx/${receipt2.receipt.transactionHash}`,
+      // );
     }
 
     return 'done';
