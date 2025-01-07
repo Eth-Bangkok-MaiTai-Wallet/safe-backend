@@ -14,8 +14,7 @@ import Safe from '@safe-global/protocol-kit'
 import { MetaTransactionData } from '@safe-global/safe-core-sdk-types'
 import SafeApiKit from '@safe-global/api-kit'
 import { createSafeClient } from '@safe-global/sdk-starter-kit'
-
-
+import { safeAbi } from '../utils/abi/safe.abi.js';
 
 @Injectable()
 export class InitSafeService {
@@ -70,6 +69,36 @@ export class InitSafeService {
 
     this.logger.log(`Account: ${JSON.stringify(account)}`);
 
+    await this.installOwnableValidator(smartAccountClient, ownableValidatorModule, pimlicoClient, publicClient, account);
+
+    const safeOwners = await this.getOwners(publicClient, smartAccountClient);
+    this.logger.warn(`Safe owners: ${JSON.stringify(safeOwners)}`);
+
+    const pluginAssignedOwner = privateKeyToAccount(
+      this.configService.get('PRIVATE_KEY') as Hex,
+    )
+
+    const receipt = await this.writeGreeter(smartAccountClient, pluginAssignedOwner, publicClient, pimlicoClient, account, ownableValidatorModule);
+
+    await this.parseUserOpLogs(receipt, pimlicoClient);
+
+    await this.addOwner(smartAccountClient, pluginAssignedOwner, publicClient, pimlicoClient, '0xb0754B937bD306fE72264274A61BC03F43FB685F', account, ownableValidatorModule)
+
+    // Read the owners after removal
+    const updatedOwners = await this.getOwners(publicClient, smartAccountClient);
+    this.logger.warn('Updated owners after adding:', updatedOwners);
+
+    await this.writeGreeter(smartAccountClient, pluginAssignedOwner, publicClient, pimlicoClient, account, ownableValidatorModule);
+
+    // await this.fundSafe(publicClient, smartAccountClient);
+
+    await this.removeOwnerWithSafeClient(smartAccountClient, publicClient);
+
+    const removedOwners = await this.getOwners(publicClient, smartAccountClient);
+    this.logger.warn('Removed owners after removal:', removedOwners);
+  }
+
+  async installOwnableValidator(smartAccountClient, ownableValidatorModule, pimlicoClient, publicClient, account) {
     this.logger.log('Installing ownable validator module');
     const opHash1 = await smartAccountClient.installModule(ownableValidatorModule);
 
@@ -89,144 +118,21 @@ export class InitSafeService {
     });
 
     this.logger.warn(`Ownable validator owners after module installation: ${JSON.stringify(owners2)}`);
+  }
 
-    const safeInterface = {
-      abi: [
-        {
-          inputs: [],
-          name: 'getOwners',
-          outputs: [
-            {
-              internalType: 'address[]',
-              name: '',
-              type: 'address[]',
-            },
-          ],
-          stateMutability: 'view',
-          type: 'function',
-        },
-        {
-          inputs: [
-            {
-              internalType: 'address',
-              name: 'prevOwner',
-              type: 'address',
-            },
-            {
-              internalType: 'address',
-              name: 'owner',
-              type: 'address',
-            },
-            {
-              internalType: 'uint256',
-              name: '_threshold',
-              type: 'uint256',
-            },
-          ],
-          name: 'removeOwner',
-          outputs: [],
-          stateMutability: 'nonpayable',
-          type: 'function',
-        },
-        {
-          inputs: [
-            {
-              internalType: 'address',
-              name: 'owner',
-              type: 'address',
-            },
-            {
-              internalType: 'uint256',
-              name: '_threshold',
-              type: 'uint256',
-            },
-          ],
-          name: 'addOwnerWithThreshold',
-          outputs: [],
-          stateMutability: 'nonpayable',
-          type: 'function',
-        },
-        {
-          inputs: [
-            {
-              internalType: 'address',
-              name: 'to',
-              type: 'address',
-            },
-            {
-              internalType: 'uint256',
-              name: 'value',
-              type: 'uint256',
-            },
-            {
-              internalType: 'bytes',
-              name: 'data',
-              type: 'bytes',
-            },
-            {
-              internalType: 'enum Enum.Operation',
-              name: 'operation',
-              type: 'uint8',
-            },
-            {
-              internalType: 'uint256',
-              name: 'safeTxGas',
-              type: 'uint256',
-            },
-            {
-              internalType: 'uint256',
-              name: 'baseGas',
-              type: 'uint256',
-            },
-            {
-              internalType: 'uint256',
-              name: 'gasPrice',
-              type: 'uint256',
-            },
-            {
-              internalType: 'address',
-              name: 'gasToken',
-              type: 'address',
-            },
-            {
-              internalType: 'address',
-              name: 'refundReceiver',
-              type: 'address',
-            },
-            {
-              internalType: 'bytes',
-              name: 'signatures',
-              type: 'bytes',
-            },
-          ],
-          name: 'execTransaction',
-          outputs: [
-            {
-              internalType: 'bool',
-              name: 'success',
-              type: 'bool',
-            },
-          ],
-          stateMutability: 'payable',
-          type: 'function',
-        },
-      ],
-    };
-
+  async getOwners(publicClient, smartAccountClient) {
     this.logger.log(`Calling getOwners function on safe contract`);
 
     const safeOwners = await publicClient.readContract({
       address: smartAccountClient.account!.address,
-      abi: safeInterface.abi,
+      abi: safeAbi,
       functionName: 'getOwners',
     }) as Hex[];
 
-    this.logger.warn(`Safe owners: ${JSON.stringify(safeOwners)}`);
+    return safeOwners;
+  }
 
-    const pluginAssignedOwner = privateKeyToAccount(
-      this.configService.get('PRIVATE_KEY') as Hex,
-    )
-
+  async writeGreeter(smartAccountClient, pluginAssignedOwner, publicClient, pimlicoClient, account, ownableValidatorModule) {
     const nonce = await getAccountNonce(publicClient, {
       address: smartAccountClient.account!.address,
       entryPointAddress: entryPoint07Address,
@@ -242,14 +148,14 @@ export class InitSafeService {
           to: '0x6D7A849791a8E869892f11E01c2A5f3b25a497B6',
           functionName: 'greet',
           abi: [
-                      {
-                        inputs: [],
-                        name: 'greet',
-                        outputs: [],
-                        stateMutability: 'nonpayable',
-                        type: 'function',
-                      },
-                    ],
+            {
+              inputs: [],
+              name: 'greet',
+              outputs: [],
+              stateMutability: 'nonpayable',
+              type: 'function',
+            },
+          ],
           args: [],
         },
       ],
@@ -270,6 +176,10 @@ export class InitSafeService {
     this.logger.warn(`User operation receipt: ${receipt.success}`);
     this.logger.warn(`User operation receipt: ${receipt.receipt.logs}`);
 
+    return receipt;
+  }
+
+  async parseUserOpLogs(receipt, pimlicoClient) {
     const uniqueAddresses = new Set<string>();
 
     receipt.receipt.logs.forEach((log) => {
@@ -309,148 +219,82 @@ export class InitSafeService {
         console.warn('No ABI found for Contract', contractAddress);
       }
     });
+  }
 
- 
-
-    // Remove all owners from the safe wallet
-    for (let i = 0; i < safeOwners.length; i++) {
-      const prevOwner = i === 0 ? safeOwners[safeOwners.length - 1] : safeOwners[i - 1];
-      const owner = safeOwners[i];
-
-      try {
-        // const txHash = await walletClient.writeContract({
-        //   address: smartAccountClient.account!.address,
-        //   abi: safeInterface.abi,
-        //   functionName: 'removeOwner',
-        //   args: [owner, owner, 0],
-        //   chain: publicClient.chain,
-        // });
-
-        const nonceR = await getAccountNonce(publicClient, {
-          address: smartAccountClient.account!.address,
-          entryPointAddress: entryPoint07Address,
-          key: encodeValidatorNonce({ account, validator: ownableValidatorModule }),
-        });
-    
-
-        const {userOperation: userOperationR, userOpHashToSign: userOpHashToSignR} = await this.transactSafeService.prepareUserOperation({
-          nonce: nonceR.toString(),
-          calls: [
-            {
-              to: smartAccountClient.account!.address,
-              functionName: 'addOwnerWithThreshold',
-              abi: safeInterface.abi,
-              args: ['0xb0754B937bD306fE72264274A61BC03F43FB685F', 1],
-            },
-          ],
-        }, smartAccountClient);
-
-        userOperationR.signature = await pluginAssignedOwner.signMessage({
-          message: { raw: userOpHashToSignR },
-        })
-
-        const userOpHashR = await smartAccountClient.sendUserOperation(userOperationR);
-
-        const receiptR = await pimlicoClient.waitForUserOperationReceipt({
-          hash: userOpHashR,
-        })
-
-        this.logger.warn(`User operation receipt for adding owner: ${receiptR.success}`);
-
-        this.logger.log(`Removed owner ${owner} from the safe wallet. Transaction hash: ${userOpHashR}`);
-
-        // await new Promise((resolve) => setTimeout(resolve, 10000));
-
-        // const nonceR2 = await getAccountNonce(publicClient, {
-        //   address: smartAccountClient.account!.address,
-        //   entryPointAddress: entryPoint07Address,
-        //   key: encodeValidatorNonce({ account, validator: ownableValidatorModule }),
-        // });
-    
-
-        // const {userOperation: userOperationR2, userOpHashToSign: userOpHashToSignR2} = await this.transactSafeService.prepareUserOperation({
-        //   nonce: nonceR2.toString(),
-        //   calls: [
-        //     {
-        //       to: smartAccountClient.account!.address,
-        //       functionName: 'removeOwner',
-        //       abi: safeInterface.abi,
-        //       args: ['0xb0754B937bD306fE72264274A61BC03F43FB685F', '0xb0754B937bD306fE72264274A61BC03F43FB685F', 1],
-        //     },
-        //   ],
-        // }, smartAccountClient);
-
-        // userOperationR2.signature = await pluginAssignedOwner.signMessage({
-        //   message: { raw: userOpHashToSignR2 },
-        // })
-
-        // const userOpHashR2 = await smartAccountClient.sendUserOperation(userOperationR2);
-
-        // const receiptR2 = await pimlicoClient.waitForUserOperationReceipt({
-        //   hash: userOpHashR2,
-        // })
-
-        // this.logger.warn(`User operation receipt for removing owner: ${receiptR2.success}`);
-        // this.logger.log(`Removed owner ${owner} from the safe wallet. Transaction hash: ${txHash}`);
-      } catch (error) {
-        this.logger.error(`Error removing owner ${owner} from the safe wallet`);
-        this.logger.error(error);
-      }
-    }
-
-    // Read the owners after removal
-    const updatedOwners = await publicClient.readContract({
-      address: smartAccountClient.account!.address,
-      abi: safeInterface.abi,
-      functionName: 'getOwners',
-    }) as Hex[];
-
-    this.logger.warn('Updated owners after removal:', updatedOwners);
-
-    // Repeat the user operation to the greeter contract
-    const nonce2 = await getAccountNonce(publicClient, {
+  async addOwner(smartAccountClient, pluginAssignedOwner, publicClient, pimlicoClient, owner, account, ownableValidatorModule) {
+    const nonceR = await getAccountNonce(publicClient, {
       address: smartAccountClient.account!.address,
       entryPointAddress: entryPoint07Address,
       key: encodeValidatorNonce({ account, validator: ownableValidatorModule }),
     });
 
-    this.logger.log(`Account nonce for second user operation: ${nonce2}`);
-
-    const {userOperation: userOperation2, userOpHashToSign: userOpHashToSign2} = await this.transactSafeService.prepareUserOperation({
-      nonce: nonce2.toString(),
+    const {userOperation: userOperationR, userOpHashToSign: userOpHashToSignR} = await this.transactSafeService.prepareUserOperation({
+      nonce: nonceR.toString(),
       calls: [
         {
-          to: '0x6D7A849791a8E869892f11E01c2A5f3b25a497B6',
-          functionName: 'greet',
-          abi: [
-                      {
-                        inputs: [],
-                        name: 'greet',
-                        outputs: [],
-                        stateMutability: 'nonpayable',
-                        type: 'function',
-                      },
-                    ],
-          args: [],
+          to: smartAccountClient.account!.address,
+          functionName: 'addOwnerWithThreshold',
+          abi: safeAbi,
+          args: [owner, 1],
         },
       ],
     }, smartAccountClient);
 
-    userOperation2.signature = await pluginAssignedOwner.signMessage({
-      message: { raw: userOpHashToSign2 },
-    });
+    userOperationR.signature = await pluginAssignedOwner.signMessage({
+      message: { raw: userOpHashToSignR },
+    })
 
-    const userOpHash2 = await smartAccountClient.sendUserOperation(userOperation2);
+    const userOpHashR = await smartAccountClient.sendUserOperation(userOperationR);
 
-    this.logger.log(`User operation hash for second user operation: ${userOpHash2}`);
+    const receiptR = await pimlicoClient.waitForUserOperationReceipt({
+      hash: userOpHashR,
+    })
 
-    const receipt2 = await pimlicoClient.waitForUserOperationReceipt({
-      hash: userOpHash2,
-    });
+    this.logger.warn(`User operation receipt for adding owner: ${receiptR.success}`);
+    this.logger.log(`Added owner ${owner} to the safe wallet. Transaction hash: ${userOpHashR}`);
+  }
 
-    this.logger.warn(`User operation receipt for second user operation: ${receipt2.success}`);
-    this.logger.warn(`User operation receipt for second user operation: ${receipt2.receipt.logs}`);
+  // async removeOwner(smartAccountClient, pluginAssignedOwner, publicClient, pimlicoClient, owner, account, ownableValidatorModule) {
+  //   try {
+  //     await this.addOwner(smartAccountClient, pluginAssignedOwner, publicClient, pimlicoClient, '0xb0754B937bD306fE72264274A61BC03F43FB685F', account, ownableValidatorModule);
 
+  //     const nonceR2 = await getAccountNonce(publicClient, {
+  //       address: smartAccountClient.account!.address,
+  //       entryPointAddress: entryPoint07Address,
+  //       key: encodeValidatorNonce({ account, validator: ownableValidatorModule }),
+  //     });
+
+  //     const {userOperation: userOperationR2, userOpHashToSign: userOpHashToSignR2} = await this.transactSafeService.prepareUserOperation({
+  //       nonce: nonceR2.toString(),
+  //       calls: [
+  //         {
+  //           to: smartAccountClient.account!.address,
+  //           functionName: 'removeOwner',
+  //           abi: safeAbi,
+  //           args: ['0xb0754B937bD306fE72264274A61BC03F43FB685F', '0xb0754B937bD306fE72264274A61BC03F43FB685F', 1],
+  //         },
+  //       ],
+  //     }, smartAccountClient);
+
+  //     userOperationR2.signature = await pluginAssignedOwner.signMessage({
+  //       message: { raw: userOpHashToSignR2 },
+  //     })
+
+  //     const userOpHashR2 = await smartAccountClient.sendUserOperation(userOperationR2);
+
+  //     const receiptR2 = await pimlicoClient.waitForUserOperationReceipt({
+  //       hash: userOpHashR2,
+  //     })
+
+  //     this.logger.warn(`User operation receipt for removing owner: ${receiptR2.success}`);
+  //     this.logger.log(`Removed owner ${owner} from the safe wallet. Transaction hash: ${userOpHashR2}`);
+  //   } catch (error) {
+  //     this.logger.error(`Error removing owner ${owner} from the safe wallet`);
+  //     this.logger.error(error);
+  //   }
+  // }
+
+  async fundSafe(publicClient, smartAccountClient) {
     const walletClient = createWalletClient({
       account: privateKeyToAccount(this.configService.get('PRIVATE_KEY') as Hex),
       chain: publicClient.chain,
@@ -469,9 +313,10 @@ export class InitSafeService {
     })
 
     this.logger.log(`Transaction ETH sent: ${tx}`);
-
     this.logger.warn(`Eth tx receipt: ${receiptTx.status}`);
+  }
 
+  async removeOwnerWithSafeClient(smartAccountClient, publicClient) {
     const safeClient = await createSafeClient({
       provider: publicClient.transport.url,
       signer: this.configService.get('PRIVATE_KEY') as Hex,
@@ -490,142 +335,5 @@ export class InitSafeService {
     this.logger.log(`safe remove owner tx result ${txResult}`)
 
     await new Promise(resolve => setTimeout(resolve, 20000));
-
-
-    const removedOwners = await publicClient.readContract({
-      address: smartAccountClient.account!.address,
-      abi: safeInterface.abi,
-      functionName: 'getOwners',
-    }) as Hex[];
-
-    this.logger.warn('Removed owners after removal:', removedOwners);
-
-    // const calldata = encodeAbiParameters(
-    //   [
-    //     { type: 'address', name: 'prevOwner' },
-    //     { type: 'address', name: 'owner' },
-    //     { type: 'uint256', name: '_threshold' },
-    //   ],
-    //   ['0xb0754B937bD306fE72264274A61BC03F43FB685F', '0xb0754B937bD306fE72264274A61BC03F43FB685F', BigInt(1)]
-    // );
-
-    // const protocolKit = await Safe.default.init({
-    //   provider: publicClient.transport.url,
-    //   signer: this.configService.get('PRIVATE_KEY') as Hex,
-    //   safeAddress: smartAccountClient.account!.address,
-    // })
-
-    // smartAccountClient.sendTransaction({
-    //   to: smartAccountClient.account!.address,
-    //   value: BigInt(0),
-    //   data: calldata,
-    //   chain: publicClient.chain,
-    // })
-
-    // const safeTransactionData: MetaTransactionData = {
-    //   to: smartAccountClient.account!.address,
-    //   data: calldata,
-    //   value: BigInt(0).toString(),
-    // }
-    // // Create a Safe transaction with the provided parameters
-    // const safeTransaction = await protocolKit.createTransaction({ transactions: [safeTransactionData] })
-
-    // // Deterministic hash based on transaction parameters
-    // const safeTxHash = await protocolKit.getTransactionHash(safeTransaction)
-
-    // // Sign transaction to verify that the transaction is coming from owner 1
-    // const senderSignature = await protocolKit.signHash(safeTxHash)
-
-    // const apiKit = new SafeApiKit.default({
-    //   chainId: 11155111n
-    // })
-
-    // await apiKit.proposeTransaction({
-    //   safeAddress: smartAccountClient.account!.address,
-    //   safeTransactionData: safeTransaction.data,
-    //   safeTxHash,
-    //   senderAddress: walletClient.account.address,
-    //   senderSignature: senderSignature.data
-    // })
-
-    // const pendingTransactions = (await apiKit.getPendingTransactions(smartAccountClient.account!.address)).results
-
-    // this.logger.warn(`Pending transactions: ${JSON.stringify(pendingTransactions)}`);
-
-    // const safeTransactionFromHash = await apiKit.getTransaction(safeTxHash)
-    // const executeTxResponse = await protocolKit.executeTransaction(safeTransactionFromHash)
-    // const safeTxReceipt = await (executeTxResponse.transactionResponse as { wait: () => Promise<any> })?.wait();
-
-    // this.logger.warn(`Transaction executed: ${safeTxReceipt.transactionHash}`);
-    // this.logger.log(`https://sepolia.etherscan.io/tx/${safeTxReceipt.transactionHash}`)
-
-  
-
-
-
-
-
-    // Execute a transaction using the safe wallet
-    // const to = smartAccountClient.account!.address; // Replace with the recipient address
-    // const value = BigInt(0); // Replace with the value to send (in wei)
-    // const callData = calldata; // Replace with the data payload
-    // const operation = BigInt(0); // Replace with the desired operation (0 for CALL, 1 for DELEGATECALL)
-    // const safeTxGas = BigInt(0); // Replace with the estimated safe transaction gas
-    // const baseGas = BigInt(0); // Replace with the base gas
-    // const gasPrice = BigInt(0); // Replace with the gas price (in wei)
-    // const gasToken = '0x0000000000000000000000000000000000000000'; // Replace with the gas token address (0x0 for ETH)
-    // const refundReceiver = '0x12bD43589950023a5E20c74064c119D47A55c443'; // Replace with the refund receiver address (0x0 for no refund)
-    
-    // const calldataHash = keccak256(calldata);
-
-    // // Sign the calldata hash using the pluginAssignedOwner account
-    // const signature = await walletClient.signMessage({
-    //   message: { raw: calldataHash },
-    // });
-
-    // // Extract the ECDSA signature components (r, s, v)
-    // const r = signature.slice(0, 66) as `0x${string}`;
-    // const s = `0x${signature.slice(66, 130)}` as `0x${string}`;
-    // const v = parseInt(signature.slice(130, 132), 16);
-
-    // // const { r, s, v } = await verifyMessage({
-    // //   address: walletClient.account.address,
-    // //   message: calldataHash,
-    // //   signature,
-    // // });
-    
-    // // Encode the ECDSA signature components into packed bytes
-    // const packedSignature = encodePacked(
-    //   ['bytes32', 'bytes32', 'uint8'],
-    //   [r, s, v]
-    // );
-
-    // const signatures = packedSignature; // Replace with the packed signature data
-
-    // try {
-    //   const txHash = await walletClient.writeContract({
-    //     address: smartAccountClient.account!.address,
-    //     abi: safeInterface.abi,
-    //     functionName: 'execTransaction',
-    //     args: [to, value, callData, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures],
-    //     chain: publicClient.chain,
-    //     value: value, // Set the value to send with the transaction
-    //   });
-
-    //   this.logger.log(`Executed transaction using the safe wallet. Transaction hash: ${txHash}`);
-
-    //   const receipt = await pimlicoClient.waitForUserOperationReceipt({
-    //     hash: txHash,
-    //   })
-
-    //   this.logger.warn(`User operation receipt for executing transaction: ${receipt.success}`);
-    // } catch (error) {
-    //   this.logger.error('Error executing transaction using the safe wallet');
-    //   this.logger.error(error);
-    // }
-
-    // ... code to parse logs and fetch ABIs ...
   }
-
-  
 } 
