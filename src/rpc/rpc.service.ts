@@ -106,7 +106,7 @@ export class RpcService {
           MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
         ],
         attestersThreshold: 1,
-        saltNonce: BigInt(10),
+        saltNonce: BigInt(14),
     })
 
     const pimlicoClient = this.getPimlicoClient(chainId);
