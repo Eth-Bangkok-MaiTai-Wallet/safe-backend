@@ -5,10 +5,11 @@ import { TransactSafeService } from './transact.safe.service.js';
 import { SafeController } from './safe.controller.js';
 import { RpcModule } from '../rpc/rpc.module.js';
 import { ConfigModule } from '@nestjs/config';
+import { Erc7579SafeService } from './erc7579.safe.service.js';
 
 @Module({
   imports: [ConfigModule.forRoot(), RpcModule],
-  providers: [InitSafeService, ConfigSafeService, TransactSafeService],
+  providers: [InitSafeService, ConfigSafeService, TransactSafeService, Erc7579SafeService],
   controllers: [SafeController],
 })
 export class SafeModule {} 

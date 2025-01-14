@@ -14,8 +14,8 @@ export class SafeController {
   ) {}
 
   @Post('init')
-  async initSafe(@Body() data: any) {
-    return this.initSafeService.initSafe(data);
+  async initSafe(@Body() data: { ownerAddress: Hex, chainId: number }) {
+    return this.initSafeService.initSafeWithOwner(data.ownerAddress, data.chainId);
   }
 
   @Post('config')

@@ -32,7 +32,7 @@ export class RpcService {
     }
 
     const chain = this.getChain(chainId);
-    const rpcUrl = this.getRpcUrl(chain);
+    const rpcUrl = this.getRpcUrl(chainId);
 
     this.logger.log(`Creating new public client for chain ID: ${chainId} with RPC URL: ${rpcUrl}`);
     const publicClient = createPublicClient({
@@ -144,13 +144,13 @@ export class RpcService {
     return chain;
   }
 
-  private getRpcUrl(chain: Chain): string {
-    this.logger.log(`Getting RPC URL for chain: ${chain.name}`);
+  getRpcUrl(chainId: number): string {
+    this.logger.log(`Getting RPC URL for chain: ${chainId}`);
 
-    let rpcUrl = this.configService.get(`RPC_URL_${chain.id}`);
+    let rpcUrl = this.configService.get(`RPC_URL_${chainId}`);
 
     if (!rpcUrl) {
-      this.logger.log(`RPC URL not found for chain: ${chain.name}, using default Sepolia RPC URL`);
+      this.logger.log(`RPC URL not found for chain: ${chainId}, using default Sepolia RPC URL`);
       rpcUrl = 'https://rpc.ankr.com/eth_sepolia';
     }
 
