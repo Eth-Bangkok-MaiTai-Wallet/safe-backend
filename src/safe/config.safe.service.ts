@@ -10,6 +10,7 @@ import { entryPoint07Address } from 'viem/account-abstraction';
 import { TransactSafeService } from './transact.safe.service.js';
 import { SafeSigner } from '@safe-global/protocol-kit';
 import { privateKeyToAccount } from 'viem/accounts';
+import { SafeOwnerConfig } from './Typres.js';
 // necessary imports
 
 interface GetAccountNonceArgs {
@@ -37,17 +38,18 @@ export class ConfigSafeService {
     // ...
   }
 
-  async removeSafeOwner(safeAddress: Hex, ownerAddressToRemove: Hex, chainId: number, signer: SafeSigner | null = null) {
+  // Can only be done via Safe transaction (direct call to Safe contract, not possible via user operation)
+  async removeSafeOwner(config: SafeOwnerConfig) {
     
     const safeClient = await createSafeClient({
-      provider: this.rpcService.getRpcUrl(chainId),
-      signer: signer ? signer : this.configService.get('PRIVATE_KEY') as Hex,
-      safeAddress: safeAddress,
+      provider: this.rpcService.getRpcUrl(config.chainId),
+      signer: config.signer ? config.signer : this.configService.get('PRIVATE_KEY') as Hex,
+      safeAddress: config.safeAddress,
     })
 
     const transaction = await safeClient.createRemoveOwnerTransaction({
-      ownerAddress: ownerAddressToRemove,
-      threshold: 1
+      ownerAddress: config.ownerAddressToAddOrRemove,
+      threshold: config.threshold ? config.threshold : 1
     })
     
     const txResult = await safeClient.send({
@@ -57,19 +59,21 @@ export class ConfigSafeService {
     await new Promise(resolve => setTimeout(resolve, 20000));
 
     this.logger.log(`safe remove owner tx result ${txResult}`)
+
+    return txResult;
   }
 
-  async addSafeOwner(safeAddress: Hex, ownerAddressToAdd: Hex, chainId: number, signer: SafeSigner | null = null) {
+  async addSafeOwner(config: SafeOwnerConfig) {
     
     const safeClient = await createSafeClient({
-      provider: this.rpcService.getRpcUrl(chainId),
-      signer: signer ? signer : this.configService.get('PRIVATE_KEY') as Hex,
-      safeAddress: safeAddress,
+      provider: this.rpcService.getRpcUrl(config.chainId),
+      signer: config.signer ? config.signer : this.configService.get('PRIVATE_KEY') as Hex,
+      safeAddress: config.safeAddress,
     })
 
     const transaction = await safeClient.createAddOwnerTransaction({
-      ownerAddress: ownerAddressToAdd,
-      threshold: 1
+      ownerAddress: config.ownerAddressToAddOrRemove,
+      threshold: config.threshold ? config.threshold : 1
     })
     
     const txResult = await safeClient.send({
@@ -79,8 +83,20 @@ export class ConfigSafeService {
     await new Promise(resolve => setTimeout(resolve, 20000));
 
     this.logger.log(`safe add owner tx result ${txResult}`)
+
+    return txResult;
   }
 
+  // Adds a safe owner via user operation, i.e. can be gas sponsored
+  // Returns the user operation and the hash to sign but does not execute it
+  // Example how to execute:
+  // userOperation.signature = await pkAccount.signMessage({
+  //   message: { raw: userOpHashToSign },
+  // })
+  // const userOpHash = await smartAccountClient.sendUserOperation(userOperation);
+  // const receipt = await pimlicoClient.waitForUserOperationReceipt({
+  //   hash: userOpHash,
+  // })
   async addSafeOwnerUserOp(smartAccountClient, ownerAddressToAdd: Hex, validatorModule: Module | null = null) {
 
     const publicClient = this.rpcService.getPublicClient(smartAccountClient.chain.id);
@@ -112,21 +128,21 @@ export class ConfigSafeService {
       userOperation,
       userOpHashToSign,
     };
-
-    // userOperation.signature = await pkAccount.signMessage({
-    //   message: { raw: userOpHashToSign },
-    // })
-
-    // const userOpHash = await smartAccountClient.sendUserOperation(userOperation);
-
-    // const receipt = await pimlicoClient.waitForUserOperationReceipt({
-    //   hash: userOpHash,
-    // })
-
-    // this.logger.warn(`User operation receipt for adding owner: ${receipt.success}`);
-    // this.logger.log(`Added owner ${owner} to the safe wallet. Transaction hash: ${userOpHash}`);
   }
 
+  async getSafeOwners(chainId: number, safeAddress: Hex) {
+    this.logger.log(`Calling getOwners function on safe contract`);
+
+    const publicClient = this.rpcService.getPublicClient(chainId);
+
+    const safeOwners = await publicClient.readContract({
+      address: safeAddress,
+      abi: safeAbi,
+      functionName: 'getOwners',
+    }) as Hex[];
+
+    return safeOwners;
+  }
 
   async signWithPk(message: Hex) {
     const pkAccount = privateKeyToAccount(this.configService.get('PRIVATE_KEY') as Hex);

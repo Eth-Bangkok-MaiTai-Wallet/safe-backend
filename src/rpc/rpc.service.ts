@@ -75,24 +75,28 @@ export class RpcService {
     return pimlicoClient;
   }
 
-  async createSmartAccountClient(chainId: number) {
-    this.logger.log(`Creating smart account client for chain ID: ${chainId}`);
+  async createSmartAccountClient(createClientData: {
+    chainId: number, 
+    privateKey?: Hex, 
+    saltNonce?: bigint
+  }) {
+    this.logger.log(`Creating smart account client for chain ID: ${createClientData.chainId}`);
 
     // const privateKey = generatePrivateKey();
 
-    const privateKey = this.configService.get('PRIVATE_KEY') as Hex;
+    const pk = createClientData.privateKey || this.configService.get('PRIVATE_KEY') as Hex;
 
-    const creatorAccount =privateKeyToAccount(privateKey);
+    const creatorAccount =privateKeyToAccount(pk);
 
     this.logger.warn(`Creator account: ${creatorAccount.address}`);
 
-    this.logger.warn(`Private key: ${privateKey}`);
+    this.logger.warn(`Private key: ${pk}`);
 
     // const privateKey = this.configService.get('PRIVATE_KEY');
 
     this.logger.log('Creating safe smart account');
     const safeAccount = await toSafeSmartAccount({
-        client: this.getPublicClient(chainId),
+        client: this.getPublicClient(createClientData.chainId),
         owners: [creatorAccount],
         version: '1.4.1',
         entryPoint: {
@@ -106,16 +110,16 @@ export class RpcService {
           MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
         ],
         attestersThreshold: 1,
-        saltNonce: BigInt(18),
+        saltNonce: createClientData.saltNonce || BigInt(0),
     })
 
-    const pimlicoClient = this.getPimlicoClient(chainId);
-    const pimlicoUrl = this.getPimlicoUrl(chainId);
+    const pimlicoClient = this.getPimlicoClient(createClientData.chainId);
+    const pimlicoUrl = this.getPimlicoUrl(createClientData.chainId);
 
     this.logger.log('Creating smart account client');
     const smartAccountClient = createSmartAccountClient({
       account: safeAccount,
-      chain: this.getChain(chainId),
+      chain: this.getChain(createClientData.chainId),
       bundlerTransport: http(pimlicoUrl),
       paymaster: pimlicoClient,
       userOperation: {
@@ -125,7 +129,7 @@ export class RpcService {
       },
     }).extend(erc7579Actions());
 
-    return {smartAccountClient, privateKey};
+    return {smartAccountClient, privateKey: pk};
   }
 
   private getChain(chainId: number): Chain {

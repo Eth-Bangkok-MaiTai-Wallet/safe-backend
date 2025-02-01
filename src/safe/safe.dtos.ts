@@ -1,4 +1,4 @@
-import { IsArray, IsHexadecimal, IsNumberString, ValidateNested } from "class-validator";
+import { IsArray, IsEthereumAddress, IsHexadecimal, IsNumber, IsNumberString, ValidateNested } from "class-validator";
 
 import { Transform, Type } from "class-transformer";
 import { IsOptional, IsString } from "class-validator";

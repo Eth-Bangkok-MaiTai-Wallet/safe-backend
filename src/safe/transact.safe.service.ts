@@ -24,9 +24,9 @@ export class TransactSafeService {
     const chainSlug = getChainSlug(chainId);
     if (!chainSlug) throw new Error('Unsupported chain');
 
-    const {smartAccountClient, privateKey} = await this.rpcService.createSmartAccountClient(
+    const {smartAccountClient, privateKey} = await this.rpcService.createSmartAccountClient({
       chainId,
-    );
+    });
 
     const txHashMultiple = await smartAccountClient.sendTransaction({
       calls: data.calls,
