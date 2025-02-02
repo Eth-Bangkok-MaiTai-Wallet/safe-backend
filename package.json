@@ -35,6 +35,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "node-cron": "^3.0.3",
+    "ox": "^0.6.9",
     "permissionless": "^0.2.17",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",

@@ -8,9 +8,14 @@ import { safeAbi } from '../utils/abi/safe.abi.js';
 import { Hex } from 'viem';
 import { entryPoint07Address } from 'viem/account-abstraction';
 import { TransactSafeService } from './transact.safe.service.js';
-import { SafeSigner } from '@safe-global/protocol-kit';
+// import { SafeSigner } from '@safe-global/protocol-kit';
 import { privateKeyToAccount } from 'viem/accounts';
 import { SafeOwnerConfig } from './Typres.js';
+import { SafeConfigDto } from './safe.dtos.js';
+import * as crypto from 'crypto';
+import { Erc7579SafeService } from './erc7579.safe.service.js';
+import { keccak256 } from 'viem/utils';
+
 // necessary imports
 
 interface GetAccountNonceArgs {
@@ -28,14 +33,88 @@ export class ConfigSafeService {
     private configService: ConfigService,
     private rpcService: RpcService,
     private transactSafeService: TransactSafeService,
+    private erc7579SafeService: Erc7579SafeService,
   ) {}
   
-  async configSafe(data: any) {
-    // Logic to install ERC7579 modules into the Safe using permissionlessjs
-    // Read which modules are installed
-    // Configure the installed modules
+  async configSafe(config: SafeConfigDto) {
 
-    // ...
+    if (!config.multisig && !config.passkey) {
+      throw new Error('Multisig or passkey is required');
+    }
+
+    const saltBuffer = crypto.randomBytes(32);
+    const saltHex = '0x' + saltBuffer.toString('hex');
+
+    let lastClient;
+    let lastOwners;
+
+    const results: Record<string, { 
+      safeAddress: string, 
+      safeLegacyOwners: string[], 
+      safeModuleOwners: string[], 
+      safeModulePasskey: string | undefined 
+    }> = {};
+
+    for (const chainId of config.chains) {
+
+      console.log('deploying Safe on chainId ', chainId);
+
+      const { smartAccountClient, privateKey } = await this.rpcService.createSmartAccountClient({
+        chainId: Number(chainId),
+        privateKey: this.configService.get('PRIVATE_KEY') as Hex, 
+        saltNonce: BigInt(saltHex)
+      });
+
+      if (config.multisig && config.multisig.owners.length > 0) {
+        await this.erc7579SafeService.installOwnableValidatorModule(smartAccountClient, config.multisig.owners as Hex[], config.multisig.threshold);
+      }
+
+      if (config.passkey) {
+        await this.erc7579SafeService.installWebAuthnModule(smartAccountClient, config.passkey);
+      }
+      
+      // brick safe
+      const zeroBytes32 = "0x0000000000000000000000000000000000000000";
+      const safeAddress = smartAccountClient.account!.address;
+      const ownerToRemove = privateKeyToAccount(privateKey).address;
+      const unspendableAddress = keccak256(zeroBytes32).substring(0, 42);
+
+      const addOwnerConfig: SafeOwnerConfig = {
+        safeAddress,
+        ownerAddressToAddOrRemove: unspendableAddress,
+        chainId: Number(chainId),
+        threshold: 1,
+        signer: privateKey
+      }
+
+      await this.addSafeOwner(addOwnerConfig);
+
+      const removeOwnerConfig: SafeOwnerConfig = {
+        safeAddress,
+        ownerAddressToAddOrRemove: ownerToRemove,
+        chainId: Number(chainId),
+        threshold: 1,
+        signer: privateKey
+      }
+
+      await this.removeSafeOwner(removeOwnerConfig);
+
+      const safeOwnersAfter = await this.getSafeOwners(Number(chainId), smartAccountClient.account!.address);
+
+      this.logger.log(`Safe owners after brick (unspendable owner ${unspendableAddress}):`, safeOwnersAfter);
+
+      lastClient = smartAccountClient;
+      lastOwners = safeOwnersAfter;
+
+      results[chainId] = {
+        safeAddress: smartAccountClient.account!.address,
+        safeLegacyOwners: safeOwnersAfter ? safeOwnersAfter : [],
+        safeModuleOwners: config.multisig && config.multisig.owners ? config.multisig.owners : [],
+        safeModulePasskey: config.passkey ? JSON.stringify(config.passkey) : undefined,
+      };
+    }
+
+    return results;
   }
 
   // Can only be done via Safe transaction (direct call to Safe contract, not possible via user operation)
@@ -56,15 +135,17 @@ export class ConfigSafeService {
       transactions: [transaction]
     })
 
-    await new Promise(resolve => setTimeout(resolve, 20000));
+    const publicClient = this.rpcService.getPublicClient(config.chainId);
+    const receipt = await publicClient.waitForTransactionReceipt({ 
+      hash: txResult.transactions?.ethereumTxHash as Hex 
+    });
 
-    this.logger.log(`safe remove owner tx result ${txResult}`)
+    this.logger.warn(`safe remove owner tx hash ${txResult.transactions?.ethereumTxHash}, receipt ${receipt}`)
 
     return txResult;
   }
 
   async addSafeOwner(config: SafeOwnerConfig) {
-    
     const safeClient = await createSafeClient({
       provider: this.rpcService.getRpcUrl(config.chainId),
       signer: config.signer ? config.signer : this.configService.get('PRIVATE_KEY') as Hex,
@@ -80,10 +161,12 @@ export class ConfigSafeService {
       transactions: [transaction]
     })
 
-    await new Promise(resolve => setTimeout(resolve, 20000));
+    const publicClient = this.rpcService.getPublicClient(config.chainId);
+    const receipt = await publicClient.waitForTransactionReceipt({ 
+      hash: txResult.transactions?.ethereumTxHash as Hex 
+    });
 
-    this.logger.log(`safe add owner tx result ${txResult}`)
-
+    this.logger.warn(`safe add owner tx hash ${txResult.transactions?.ethereumTxHash}, receipt ${receipt}`)
     return txResult;
   }
 

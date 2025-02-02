@@ -84,4 +84,54 @@ export class UserOperationDto {
   
     @IsNumberString()
     nonce!: string;
-  }
+}
+
+class PublicKeyDto {
+  @IsNumber()
+  prefix!: number;
+
+  @Transform(({ value }) => BigInt(value))
+  @IsNumberString()
+  x!: bigint;
+
+  @Transform(({ value }) => BigInt(value))
+  @IsNumberString()
+  y!: bigint;
+}
+
+export class PasskeyDto {
+  @IsString()
+  name!: string;
+
+  @IsString()
+  id!: string;
+
+  @ValidateNested()
+  @Type(() => PublicKeyDto)
+  publicKey!: PublicKeyDto;
+}
+
+class MultisigDto {
+  @IsArray()
+  @IsEthereumAddress({ each: true })
+  owners!: string[];
+
+  @IsNumber()
+  threshold!: number;
+}
+
+export class SafeConfigDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PasskeyDto)
+  passkey?: PasskeyDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MultisigDto)
+  multisig?: MultisigDto;
+
+  @IsArray()
+  @IsString({ each: true })
+  chains!: string[];
+}

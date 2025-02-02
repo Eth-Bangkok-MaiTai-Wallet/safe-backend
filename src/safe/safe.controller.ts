@@ -2,7 +2,7 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { InitSafeService } from './init.safe.service.js';
 import { ConfigSafeService } from './config.safe.service.js';
 import { TransactSafeService } from './transact.safe.service.js';
-import { TransactSafeDto } from './safe.dtos.js';
+import { SafeConfigDto, TransactSafeDto } from './safe.dtos.js';
 import { Hex } from 'viem';
 
 @Controller('safe')
@@ -18,9 +18,10 @@ export class SafeController {
     return this.initSafeService.initSafeWithOwner(data.ownerAddress, data.chainId);
   }
 
-  @Post('config')
-  async configSafe(@Body() data: any) {
-    return this.configSafeService.configSafe(data);
+  @Post('create')
+  async configSafe(@Body() config: SafeConfigDto) {
+    console.log('configSafe', config);
+    return this.configSafeService.configSafe(config);
   }
 
   @Post('transact')

@@ -18,6 +18,8 @@ import { entryPoint07Address } from 'viem/account-abstraction';
 // Load environment variables
 config();
 
+const MODULE_OWNER = '0x12bD43589950023a5E20c74064c119D47A55c443';
+
 describe('ConfigSafeService Integration Tests', () => {
   let safeConfigService: ConfigSafeService;
   let configService: ConfigService;
@@ -55,7 +57,7 @@ describe('ConfigSafeService Integration Tests', () => {
 
       console.log('pkAccount', pkAccount.address);
 
-      await erc7579SafeService.installOwnableValidatorModule(smartAccountClient, ['0x12bD43589950023a5E20c74064c119D47A55c443'], 1);
+      await erc7579SafeService.installOwnableValidatorModule(smartAccountClient, [MODULE_OWNER], 1);
 
       const safeOwnersBefore = await safeConfigService.getSafeOwners(11155111, smartAccountClient.account!.address);
       console.log('Safe owners before:', safeOwnersBefore);

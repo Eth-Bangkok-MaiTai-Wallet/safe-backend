@@ -90,7 +90,7 @@ export class RpcService {
 
     this.logger.warn(`Creator account: ${creatorAccount.address}`);
 
-    this.logger.warn(`Private key: ${pk}`);
+    // this.logger.warn(`Private key: ${pk}`);
 
     // const privateKey = this.configService.get('PRIVATE_KEY');
 
