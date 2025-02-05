@@ -18,8 +18,6 @@ import { entryPoint07Address } from 'viem/account-abstraction';
 // Load environment variables
 config();
 
-const MODULE_OWNER = '0x12bD43589950023a5E20c74064c119D47A55c443';
-
 describe('ConfigSafeService Integration Tests', () => {
   let safeConfigService: ConfigSafeService;
   let configService: ConfigService;
@@ -28,6 +26,7 @@ describe('ConfigSafeService Integration Tests', () => {
   let safeTransactionService: TransactSafeService;
   let initializedSmartAccountClient;
   let pk;
+  let MODULE_OWNER;
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       providers: [
@@ -45,6 +44,8 @@ describe('ConfigSafeService Integration Tests', () => {
     rpcService = module.get<RpcService>(RpcService);
     erc7579SafeService = module.get<Erc7579SafeService>(Erc7579SafeService);
     safeTransactionService = module.get<TransactSafeService>(TransactSafeService);
+
+    MODULE_OWNER = configService.get('PK_ADDRESS')
   });
 
   describe('initializeSafe', () => {
@@ -59,7 +60,7 @@ describe('ConfigSafeService Integration Tests', () => {
 
       await erc7579SafeService.installOwnableValidatorModule(smartAccountClient, [MODULE_OWNER], 1);
 
-      const safeOwnersBefore = await safeConfigService.getSafeOwners(11155111, smartAccountClient.account!.address);
+      const safeOwnersBefore = await safeConfigService.getSafeOwners(11155111, smartAccountClient.account!.address as Hex);
       console.log('Safe owners before:', safeOwnersBefore);
 
       const zeroBytes32 = "0x0000000000000000000000000000000000000000";
@@ -85,7 +86,7 @@ describe('ConfigSafeService Integration Tests', () => {
 
       await new Promise(resolve => setTimeout(resolve, 30000));
 
-      const safeOwnersAfterAdd = await safeConfigService.getSafeOwners(11155111, smartAccountClient.account!.address);
+      const safeOwnersAfterAdd = await safeConfigService.getSafeOwners(11155111, smartAccountClient.account!.address as Hex);
       console.log('Safe owners after add:', safeOwnersAfterAdd);
 
       const removeOwnerConfig: SafeOwnerConfig = {
@@ -102,7 +103,7 @@ describe('ConfigSafeService Integration Tests', () => {
 
       await new Promise(resolve => setTimeout(resolve, 30000));
 
-      const safeOwnersAfter = await safeConfigService.getSafeOwners(11155111, smartAccountClient.account!.address);
+      const safeOwnersAfter = await safeConfigService.getSafeOwners(11155111, smartAccountClient.account!.address as Hex);
 
       console.log('Safe owners after remove:', safeOwnersAfter);
 

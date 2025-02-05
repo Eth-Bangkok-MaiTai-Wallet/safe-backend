@@ -66,7 +66,10 @@ export class InitSafeService {
       signer: privateKey
     });
 
-    const owners = await this.configSafeService.getSafeOwners(chainId, smartAccountClient.account!.address);
+    const owners = await this.configSafeService.getSafeOwners(
+      chainId, 
+      smartAccountClient.account!.address as `0x${string}`
+    );
 
     if (owners[0].toLowerCase() !== unspendableAddress.toLowerCase() || owners.length !== 1) {
       this.logger.warn('Safe setup failed');  
