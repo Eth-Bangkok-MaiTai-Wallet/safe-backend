@@ -1,86 +1,67 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { getWebAuthnValidator } from '@rhinestone/module-sdk';
-import { ConfigSafeService } from '../safe/config.safe.service.js';
-import { RpcService } from '../rpc/rpc.service.js';
-import { randomBytes } from 'crypto';
-import { Hex } from 'viem';
+import { UserService } from '../user/user.service.js';
 
 @Injectable()
 export class PasskeyService {
   private readonly logger = new Logger(PasskeyService.name);
-  private challenges = new Map<string, { challenge: string, timestamp: number }>();
+  // private challenges = new Map<string, { challenge: string, timestamp: number }>();
 
   constructor(
-    private configService: ConfigService,
-    private configSafeService: ConfigSafeService,
-    private rpcService: RpcService,
+    private userService: UserService,
   ) {}
 
-  async generateChallenge() {
-    const challenge = `0x${randomBytes(32).toString('hex')}`;
-    this.challenges.set(challenge, {
-      challenge,
-      timestamp: Date.now()
-    });
+  // async getSafes(id: string) {
+  //   try {
+  //     const user = await this.userService.findByPasskeyId(id);
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
 
-    this.cleanupChallenges();
-    return { challenge };
+  //     // Convert Map to Record for API response
+  //     const safes: Record<string, any> = {};
+  //     user.safes.forEach((safe, chainId) => {
+  //       safes[chainId] = {
+  //         safeAddress: safe.safeAddress,
+  //         safeLegacyOwners: safe.safeLegacyOwners,
+  //         safeModuleOwners: safe.safeModuleOwners,
+  //         safeModulePasskey: safe.safeModulePasskey,
+  //       };
+  //     });
+
+  //     return { safes };
+  //   } catch (error) {
+  //     this.logger.error('Verification failed:', error);
+  //     throw new Error(`Verification failed: ${error}`);
+  //   }
+  // }
+
+  async getUserByPasskeyId(id: string) {
+    return this.userService.findByPasskeyId(id);
   }
 
-  async verify(data: { metadata: any; signature: string; challenge: string }) {
-    const challengeData = this.challenges.get(data.challenge);
-    if (!challengeData) {
-      throw new Error('Invalid or expired challenge');
-    }
-
+  async registerPasskey(user: {username: string, id: string}, credentialId: string, pem: string) {
     try {
-      // Verify the signature using WebAuthn validator
-      const validator = getWebAuthnValidator({
-        pubKey: data.metadata.publicKey,
-        authenticatorId: data.metadata.id,
-      });
+      const passkeyData = {
+        id: credentialId,
+        publicKeyPem: pem
+      };
 
-      // Get all chains configured in the environment
-      const supportedChains = this.configService.get('SUPPORTED_CHAINS').split(',');
-      const results: Record<string, any> = {};
+      const existingCredentials = await this.userService.findByPasskeyId(credentialId);
 
-      // For each chain, get the safe configuration
-      for (const chainId of supportedChains) {
-        const safeAddress = undefined;
-        // const safeAddress = await this.configSafeService.getSafeAddress(
-        //   Number(chainId),
-        //   data.metadata.id as Hex
-        // );
-
-        if (safeAddress) {
-          const owners = await this.configSafeService.getSafeOwners(
-            Number(chainId),
-            safeAddress
-          );
-
-          results[chainId] = {
-            safeAddress,
-            safeLegacyOwners: [],
-            safeModuleOwners: owners,
-            safeModulePasskey: data.metadata.id
-          };
-        }
+      if (existingCredentials) {
+        throw new Error('User already exists - duplicate credentials ID');
       }
 
-      return { safes: results };
+      const existingUser = await this.userService.findByUsername(user.username);
+
+      if (existingUser) {
+        throw new Error('User already exists - duplicate username');
+      }
+
+      return await this.userService.createWithPasskey(user, passkeyData);
     } catch (error) {
-      this.logger.error('Verification failed:', error);
-      throw new Error(`Verification failed: ${error}`);
-    }
-  }
-
-  private cleanupChallenges() {
-    const now = Date.now();
-    for (const [challenge, data] of this.challenges.entries()) {
-      if (now - data.timestamp > 5 * 60 * 1000) {
-        this.challenges.delete(challenge);
-      }
+      this.logger.error('Registration failed:', error);
+      throw new Error(`Registration failed: ${error}`);
     }
   }
 } 

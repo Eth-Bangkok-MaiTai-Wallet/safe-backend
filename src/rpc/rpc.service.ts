@@ -8,7 +8,7 @@ import { getChainSlug } from '../utils/pimlico.js';
 import * as chains from 'viem/chains';
 import { sepolia } from 'viem/chains';
 import { createSmartAccountClient } from 'permissionless';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { toSafeSmartAccount } from 'permissionless/accounts';
 import { MOCK_ATTESTER_ADDRESS, RHINESTONE_ATTESTER_ADDRESS } from '@rhinestone/module-sdk';
 import { erc7579Actions } from 'permissionless/actions/erc7579';

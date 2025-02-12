@@ -135,3 +135,12 @@ export class SafeConfigDto {
   @IsString({ each: true })
   chains!: string[];
 }
+
+export class SafeConfigResultDto {
+  [chainId: string]: {
+    safeAddress: string;
+    safeLegacyOwners: string[];
+    safeModuleOwners: string[];
+    safeModulePasskey?: string | undefined;
+  };
+}

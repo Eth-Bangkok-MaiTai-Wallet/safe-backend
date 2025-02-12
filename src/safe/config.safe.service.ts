@@ -11,7 +11,7 @@ import { TransactSafeService } from './transact.safe.service.js';
 // import { SafeSigner } from '@safe-global/protocol-kit';
 import { privateKeyToAccount } from 'viem/accounts';
 import { SafeOwnerConfig } from './Typres.js';
-import { SafeConfigDto } from './safe.dtos.js';
+import { SafeConfigDto, SafeConfigResultDto } from './safe.dtos.js';
 import * as crypto from 'crypto';
 import { Erc7579SafeService } from './erc7579.safe.service.js';
 import { keccak256 } from 'viem/utils';
@@ -45,15 +45,10 @@ export class ConfigSafeService {
     const saltBuffer = crypto.randomBytes(32);
     const saltHex = '0x' + saltBuffer.toString('hex');
 
-    let lastClient;
-    let lastOwners;
+    // let lastClient;
+    // let lastOwners;
 
-    const results: Record<string, { 
-      safeAddress: string, 
-      safeLegacyOwners: string[], 
-      safeModuleOwners: string[], 
-      safeModulePasskey: string | undefined 
-    }> = {};
+    const results: SafeConfigResultDto = {};
 
     for (const chainId of config.chains) {
 
@@ -103,8 +98,8 @@ export class ConfigSafeService {
 
       this.logger.log(`Safe owners after brick (unspendable owner ${unspendableAddress}):`, safeOwnersAfter);
 
-      lastClient = smartAccountClient;
-      lastOwners = safeOwnersAfter;
+      // lastClient = smartAccountClient;
+      // lastOwners = safeOwnersAfter;
 
       results[chainId] = {
         safeAddress: smartAccountClient.account!.address,

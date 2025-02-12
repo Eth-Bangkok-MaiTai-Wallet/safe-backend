@@ -1,42 +1,70 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-webauthn';
+import { Strategy, SessionChallengeStore } from 'passport-fido2-webauthn';
+import { PasskeyService } from './passkey.service.js';
 
-type WebAuthnP256Credential = {
-  id: string;
-  publicKey: {
-    prefix: number;
-    x: string;
-    y: string;
-  };
-};
 
 @Injectable()
 export class WebAuthnStrategy extends PassportStrategy(Strategy, 'webauthn') {
-  constructor() {
-    super({
-      rpName: 'Safe WebAuthn',
-      rpId: process.env.RP_ID || 'localhost',
-      origin: process.env.ORIGIN || 'http://localhost:3000',
-      // Optional settings
-      timeout: 60000,
-      attestation: 'none',
-      authenticatorSelection: {
-        requireResidentKey: false,
-        userVerification: 'preferred'
-      }
-    });
+  private readonly logger = new Logger(WebAuthnStrategy.name);
+  
+  private store: SessionChallengeStore;
+
+  constructor(
+    private passkeyService: PasskeyService
+  ) {
+    const store = new SessionChallengeStore();
+    
+    super(
+      { store },
+      // passed in as verify
+      async (id: string, userHandle: Buffer, verified: Function) => {
+        this.logger.log('Running verify callback');
+        try {
+          if (!id) {
+            return verified({ message: 'Missing credential ID' }, false, null);
+          }
+
+          const user = await this.passkeyService.getUserByPasskeyId(id);
+
+          this.logger.log('User found', user);
+
+          return verified(null, user, user?.passkey?.publicKeyPem);
+
+        } catch (error) {
+          verified(error);
+        }
+      },
+    );
+
+    this.store = store;
   }
 
-  async validate(credential: WebAuthnP256Credential) {
-    // This matches the format from WebAuthnP256.sign()
-    return {
-      id: credential.id,
-      publicKey: {
-        prefix: Number(credential.publicKey.prefix),
-        x: credential.publicKey.x.toString(),
-        y: credential.publicKey.y.toString()
-      }
-    };
+
+  // passed in as register
+  async validate(user: {id: Buffer, username: string}, credentialId: string, pem: string, registered: Function): Promise<any> {
+
+    this.logger.log('Running register callback');
+
+    return await this.register(user, credentialId, pem as string, registered as Function);
+  }
+
+  async register(user: {id: Buffer, username: string}, credentialId: string, pem: string, registered: Function) {
+
+    try {
+      
+      const newUser =await this.passkeyService.registerPasskey({username: user.username, id: user.id.toString()}, credentialId, pem);
+
+      this.logger.log('New user registered', newUser);
+
+      return registered(null, newUser);
+
+    } catch (error) {
+      throw new Error(`Registration failed: ${error}`);
+    }
+  }
+
+  getStore() {
+    return this.store;
   }
 } 

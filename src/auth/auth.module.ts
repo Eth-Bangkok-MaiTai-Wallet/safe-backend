@@ -1,20 +1,20 @@
 import { Module } from '@nestjs/common';
+import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller.js';
-import { PasskeyService } from './passkey.service.js';
-import { SiweService } from './siwe.service.js';
+import { WebAuthnStrategy } from './webauthn.strategy.js';
 import { ConfigModule } from '@nestjs/config';
-import { ConfigSafeService } from '../safe/config.safe.service.js';
-import { RpcService } from '../rpc/rpc.service.js';
+import { UserModule } from '../user/user.module.js';
+import { PasskeyService } from './passkey.service.js';
+import { SessionGuard } from './session.guard.js';
 
 @Module({
-  imports: [ConfigModule],
-  controllers: [AuthController],
-  providers: [
-    PasskeyService, 
-    SiweService,
-    ConfigSafeService,
-    RpcService
+  imports: [
+    PassportModule,
+    ConfigModule,
+    UserModule
   ],
-  exports: [PasskeyService, SiweService]
+  controllers: [AuthController],
+  providers: [WebAuthnStrategy, PasskeyService, SessionGuard],
+  exports: [WebAuthnStrategy, SessionGuard]
 })
 export class AuthModule {} 
