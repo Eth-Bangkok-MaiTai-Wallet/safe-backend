@@ -6,9 +6,11 @@ export class SessionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
 
     console.log('SessionGuard hit');
+
+    console.log('REQUEST', request);
     
     // Check if the session exists and contains a userId
-    if (!request.session || !request.session.userId) {
+    if (!request.session || !request.session.user) {
       throw new UnauthorizedException('User not authenticated');
     }
     

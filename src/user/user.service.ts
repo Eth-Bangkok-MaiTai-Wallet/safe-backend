@@ -69,4 +69,12 @@ export class UserService {
     }
     return user;
   }
+
+  async findOneByCustomId(customId: string): Promise<User | null> {
+    return this.userModel.findOne({ customId }).exec();
+  }
+
+  async updateUser(user: User): Promise<User> {
+    return user.save();
+  }
 } 

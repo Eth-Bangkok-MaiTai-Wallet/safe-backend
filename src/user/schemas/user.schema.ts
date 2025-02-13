@@ -25,8 +25,8 @@ class Passkey {
   @Prop({ required: true })
   publicKeyPem!: string;
 
-  // @Prop({ type: PublicKey, required: true })
-  // publicKey!: PublicKey;
+  @Prop({ required: false })
+  publicKeyHex!: string;
 }
 
 @Schema({ _id: false })

@@ -1,10 +1,12 @@
-import { Controller, Post, Get, Req, UseGuards, Res, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Req, UseGuards, Res, Logger, Body } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { WebAuthnStrategy } from './webauthn.strategy.js';
 import { SessionGuard } from './session.guard.js';
 import { Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import base64url from 'base64url';
+import { UserService } from '../user/user.service.js';
+import { Hex } from 'viem';
 
 
 @Controller('auth')
@@ -13,6 +15,7 @@ export class AuthController {
 
   constructor(
     private webAuthnStrategy: WebAuthnStrategy,
+    private userService: UserService,
   ) {}
 
   @Post('passkey/challenge')
@@ -34,9 +37,11 @@ export class AuthController {
           if (err) reject(err);
           if (!challenge) reject(new Error('No challenge generated'));
 
-          this.logger.log('challenge:', challenge);
+          const challengeHex = base64url.default.decode(base64url.default.encode(challenge!), 'hex');
 
-          const data = {challenge: base64url.default.encode(challenge!)}
+          this.logger.log('challenge:', challengeHex);
+
+          const data = {challenge: base64url.default.encode(`0x${challengeHex}`)}
 
           req.session['webauthn'] = data;
           req.session.save();
@@ -72,9 +77,25 @@ export class AuthController {
 
   @Post('passkey/verify')
   @UseGuards(AuthGuard('webauthn'))
-  async verifyPasskey(@Req() req) {
-
+  async verifyPasskey(@Req() req, @Body() body: { publicKeyHex: Hex }) {
     this.logger.log('verification complete');
+
+    // Fetch the user from the database using the data in req.user
+    const user = await this.userService.findOneByCustomId(req.user.customId);
+
+    if (user && body.publicKeyHex) {
+      // Update the user's publicKeyHex field
+      if (!user.passkey) {
+        user.passkey = {
+          id: req.user.id,
+          publicKeyPem: req.user.publicKeyPem,
+          publicKeyHex: body.publicKeyHex
+        };
+      } else {
+        user.passkey.publicKeyHex = body.publicKeyHex;
+      }
+      await this.userService.updateUser(user);
+    }
 
     return req.user;
   }

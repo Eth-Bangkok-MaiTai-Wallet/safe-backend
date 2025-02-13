@@ -53,7 +53,7 @@ export class WebAuthnStrategy extends PassportStrategy(Strategy, 'webauthn') {
 
     try {
       
-      const newUser =await this.passkeyService.registerPasskey({username: user.username, id: user.id.toString()}, credentialId, pem);
+      const newUser =await this.passkeyService.registerPasskey({username: user.username, id: user.id.toString()}, credentialId, pem, );
 
       this.logger.log('New user registered', newUser);
 
