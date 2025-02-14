@@ -5,7 +5,7 @@ import { RpcService } from '../rpc/rpc.service.js';
 import { Address, Client, encodeFunctionData, Hex, PublicClient, toBytes, toHex } from 'viem';
 import { PasskeyDto } from './safe.dtos.js';
 import { PublicKey } from "ox";
-import { getWebAuthnValidator } from '@rhinestone/module-sdk';
+import { getWebAuthnValidator, WEBAUTHN_VALIDATOR_ADDRESS } from '@rhinestone/module-sdk';
 import { generatePrivateKey } from 'viem/accounts';
 import { privateKeyToAccount } from 'viem/accounts';
 import { SafeSessionConfig } from '../user/schemas/safe.schema.js';
@@ -199,6 +199,7 @@ export class Erc7579SafeService {
       sessions: [session],
       account,
       clients: [publicClient as PublicClient],
+      enableValidatorAddress: WEBAUTHN_VALIDATOR_ADDRESS,
     })
 
     this.logger.verbose(`Session details:`, sessionDetails);
@@ -330,7 +331,7 @@ export class Erc7579SafeService {
 
     const pk = user.safesByChain.find(sbc => sbc.chainId === chainId)?.safes.find(s => s.safeAddress === safeAddress)?.safeModuleSessionConfig?.find(sc => sc.sessionConfigHash === hash)?.sessionKey;
 
-    console.log('pk', pk);
+    this.logger.warn('pk', pk);
 
     const sessionOwner = privateKeyToAccount(pk as Hex);
      
