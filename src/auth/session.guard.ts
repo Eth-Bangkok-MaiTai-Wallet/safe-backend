@@ -7,10 +7,10 @@ export class SessionGuard implements CanActivate {
 
     console.log('SessionGuard hit');
 
-    console.log('REQUEST', request);
+    console.log('REQUEST', request.sessionID);
     
     // Check if the session exists and contains a userId
-    if (!request.session || !request.session.user) {
+    if (!request.session || !request.session.userId) {
       throw new UnauthorizedException('User not authenticated');
     }
     

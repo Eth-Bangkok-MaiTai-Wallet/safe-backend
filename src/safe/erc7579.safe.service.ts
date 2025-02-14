@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { getOwnableValidator, getOwnableValidatorOwners } from '@rhinestone/module-sdk';
+import { getOwnableValidator, getOwnableValidatorOwners, getSmartSessionsValidator } from '@rhinestone/module-sdk';
 import { RpcService } from '../rpc/rpc.service.js';
 import { Hex, PublicClient } from 'viem';
 import { PasskeyDto } from './safe.dtos.js';
@@ -59,12 +59,12 @@ export class Erc7579SafeService {
 
   async installWebAuthnModule(smartAccountClient, passkeyCredential: PasskeyDto) {
 
+    this.logger.log(`Installing webauthn validator with pubKey: ${passkeyCredential.publicKey} and authenticatorId: ${passkeyCredential.id}`);
+
     const validator = getWebAuthnValidator({
-      pubKey: { ...passkeyCredential.publicKey },
+      pubKey: passkeyCredential.publicKey,
       authenticatorId: passkeyCredential.id,
     });
-
-    this.logger.log(`Installing webauthn validator with pubKey: ${JSON.stringify(passkeyCredential.publicKey)} and authenticatorId: ${passkeyCredential.id}`);
     
     const installOp = await smartAccountClient.installModule(validator);
     
@@ -81,8 +81,35 @@ export class Erc7579SafeService {
 
   }
 
-  async installSessionsModule(smartAccountClient, owners: Hex[], threshold: number) {
+  async installSessionsModule(smartAccountClient) {
 
+    this.logger.log(`Installing smart sessions validator`);
+
+    const pimlicoClient = this.rpcService.getPimlicoClient(smartAccountClient.chain.id);
+
+    const smartSessions = getSmartSessionsValidator({})
+ 
+    const opHash = await smartAccountClient.installModule(smartSessions)
+    
+    const receipt = await pimlicoClient.waitForUserOperationReceipt({
+      hash: opHash,
+    })
+
+    if (receipt.success) {
+      this.logger.log(`smart sessions validator installed successfully: ${receipt}`);
+    } else {
+      this.logger.error(`smart sessions validator installation failed: ${receipt}`);
+      throw new Error(`smart sessions validator installation failed: ${receipt}`);
+    }
   }
 
+  async installScheduledOrders(smartAccountClient, scheduledOrders: any) {
+
+    this.logger.log(`Installing scheduled orders validator`);
+  }
+
+  async configureSessions(smartAccountClient, sessionConfig: any) {
+
+    this.logger.log(`Configuring sessions`);
+  }
 } 

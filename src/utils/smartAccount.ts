@@ -1,14 +1,15 @@
 import { getContractABI } from "./etherscan.js";
 
-import { parseEventLogs } from "viem";
-
-import { Hex } from "viem";
-
-import { http } from "viem";
+import { Hex, http, createWalletClient, parseEventLogs, keccak256 } from "viem";
 
 import { privateKeyToAccount } from "viem/accounts";
 
-import { createWalletClient } from "viem";
+
+export function getUnspendableAddress(): Hex {
+  const zeroBytes32 = "0x0000000000000000000000000000000000000000";
+  return keccak256(zeroBytes32).substring(0, 42) as Hex;
+}
+
 
 export async function parseUserOpLogs(receipt, pimlicoClient) {
     const uniqueAddresses = new Set<string>();

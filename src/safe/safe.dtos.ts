@@ -1,5 +1,5 @@
 import { IsArray, IsEthereumAddress, IsHexadecimal, IsNumber, IsNumberString, ValidateNested } from "class-validator";
-
+import { Hex } from "viem";
 import { Transform, Type } from "class-transformer";
 import { IsOptional, IsString } from "class-validator";
 
@@ -57,12 +57,13 @@ export class TransactSafeDto {
   }
 
 
-class UserOperationCallDto {
+export class UserOperationCallDto {
     @IsHexadecimal()
     to!: string;
   
+    @IsOptional()
     @IsString()
-    functionName!: string;
+    functionName?: string;
   
     @IsOptional()
     @IsArray()
@@ -70,10 +71,15 @@ class UserOperationCallDto {
     @Type(() => Object)
     abi?: any[];
   
+    @IsOptional()
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => Object)
-    args!: any[];
+    args?: any[];
+  
+    @IsOptional()
+    @IsString()
+    data?: string;
   }
   
 export class UserOperationDto {
@@ -106,9 +112,8 @@ export class PasskeyDto {
   @IsString()
   id!: string;
 
-  @ValidateNested()
-  @Type(() => PublicKeyDto)
-  publicKey!: PublicKeyDto;
+  @IsString()
+  publicKey!: Hex;
 }
 
 class MultisigDto {

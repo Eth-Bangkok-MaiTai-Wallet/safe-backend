@@ -12,6 +12,6 @@ import { UserService } from './user.service.js';
     ])
   ],
   providers: [UserService],
-  exports: [UserService]
+  exports: [UserService, MongooseModule.forFeature([{ name: Safe.name, schema: SafeSchema }])]
 })
 export class UserModule {} 

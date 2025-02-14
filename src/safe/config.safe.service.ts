@@ -14,7 +14,7 @@ import { SafeOwnerConfig } from './Typres.js';
 import { SafeConfigDto, SafeConfigResultDto } from './safe.dtos.js';
 import * as crypto from 'crypto';
 import { Erc7579SafeService } from './erc7579.safe.service.js';
-import { keccak256 } from 'viem/utils';
+import { getUnspendableAddress } from '../utils/smartAccount.js';
 
 // necessary imports
 
@@ -67,12 +67,13 @@ export class ConfigSafeService {
       if (config.passkey) {
         await this.erc7579SafeService.installWebAuthnModule(smartAccountClient, config.passkey);
       }
+
+      await this.erc7579SafeService.installSessionsModule(smartAccountClient);
       
       // brick safe
-      const zeroBytes32 = "0x0000000000000000000000000000000000000000";
       const safeAddress = smartAccountClient.account!.address;
       const ownerToRemove = privateKeyToAccount(privateKey).address;
-      const unspendableAddress = keccak256(zeroBytes32).substring(0, 42);
+      const unspendableAddress = getUnspendableAddress();
 
       const addOwnerConfig: SafeOwnerConfig = {
         safeAddress,
@@ -96,7 +97,7 @@ export class ConfigSafeService {
 
       const safeOwnersAfter = await this.getSafeOwners(Number(chainId), smartAccountClient.account!.address);
 
-      this.logger.log(`Safe owners after brick (unspendable owner ${unspendableAddress}):`, safeOwnersAfter);
+      this.logger.warn(`Safe owners after brick (unspendable owner ${unspendableAddress}):`, safeOwnersAfter);
 
       // lastClient = smartAccountClient;
       // lastOwners = safeOwnersAfter;
@@ -151,10 +152,14 @@ export class ConfigSafeService {
       ownerAddress: config.ownerAddressToAddOrRemove,
       threshold: config.threshold ? config.threshold : 1
     })
+
+    this.logger.debug(`safe add owner transaction: ${transaction}`);
     
     const txResult = await safeClient.send({
       transactions: [transaction]
     })
+
+    this.logger.debug(`safe add owner tx result: ${txResult}`);
 
     const publicClient = this.rpcService.getPublicClient(config.chainId);
     const receipt = await publicClient.waitForTransactionReceipt({ 

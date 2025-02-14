@@ -18,26 +18,3 @@ import { AuthModule } from './auth/auth.module.js';
   providers: [AppService],
 })
 export class AppModule {}
-
-// implements NestModule {
-//   configure(consumer: MiddlewareConsumer) {
-//     consumer
-//       .apply(
-//         cookieParser(process.env.COOKIE_SECRET || 'your-cookie-secret'),
-//         session({
-//           store: MongoStore.create({
-//             mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost/safe'
-//           }),
-//           secret: process.env.SESSION_SECRET || 'your-session-secret',
-//           resave: false,
-//           saveUninitialized: false,
-//           cookie: {
-//             maxAge: 24 * 60 * 60 * 1000, // 24 hours
-//             secure: process.env.NODE_ENV === 'production',
-//             sameSite: 'lax'
-//           }
-//         })
-//       )
-//       .forRoutes('*');
-//   }
-// } 

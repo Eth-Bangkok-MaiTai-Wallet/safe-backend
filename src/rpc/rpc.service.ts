@@ -7,12 +7,12 @@ import { entryPoint07Address } from 'viem/account-abstraction';
 import { getChainSlug } from '../utils/pimlico.js';
 import * as chains from 'viem/chains';
 import { sepolia } from 'viem/chains';
-import { createSmartAccountClient } from 'permissionless';
+import { createSmartAccountClient, SmartAccountClient } from 'permissionless';
 import { privateKeyToAccount } from 'viem/accounts';
 import { toSafeSmartAccount } from 'permissionless/accounts';
-import { MOCK_ATTESTER_ADDRESS, RHINESTONE_ATTESTER_ADDRESS } from '@rhinestone/module-sdk';
+import { getAccount, MOCK_ATTESTER_ADDRESS, RHINESTONE_ATTESTER_ADDRESS } from '@rhinestone/module-sdk';
 import { erc7579Actions } from 'permissionless/actions/erc7579';
-
+import { getUnspendableAddress } from '../utils/smartAccount.js';
 
 @Injectable()
 export class RpcService {
@@ -75,6 +75,51 @@ export class RpcService {
     return pimlicoClient;
   }
 
+  async getSmartAccountClient(chainId: number, safeAddress: Hex) {
+
+    const pk = this.configService.get('PRIVATE_KEY') as Hex;
+
+    const creatorAccount =privateKeyToAccount(pk);
+
+    const safeAccount = await toSafeSmartAccount({
+      client: this.getPublicClient(chainId),
+      owners: [creatorAccount],
+      version: '1.4.1',
+      entryPoint: {
+        address: entryPoint07Address,
+        version: '0.7',
+      },
+      safe4337ModuleAddress: '0x7579EE8307284F293B1927136486880611F20002',
+      erc7579LaunchpadAddress: '0x7579011aB74c46090561ea277Ba79D510c6C00ff',
+      attesters: [
+        RHINESTONE_ATTESTER_ADDRESS, // Rhinestone Attester
+      ],
+      attestersThreshold: 1,
+      address: safeAddress
+    })
+
+    // const safeAccount = getAccount({
+    //   address: safeAddress,
+    //   type: "safe",
+    // })
+
+    const pimlicoClient = this.getPimlicoClient(chainId);
+
+    const smartAccountClient = createSmartAccountClient({
+      account: safeAccount,
+      chain: this.getChain(chainId),
+      bundlerTransport: http(this.getPimlicoUrl(chainId)),
+      paymaster: pimlicoClient,
+      userOperation: {
+        estimateFeesPerGas: async () => {
+          return (await pimlicoClient.getUserOperationGasPrice()).fast
+        },
+      },
+    }).extend(erc7579Actions())
+
+    return smartAccountClient;
+  }
+
   async createSmartAccountClient(createClientData: {
     chainId: number, 
     privateKey?: Hex, 
@@ -107,7 +152,7 @@ export class RpcService {
         erc7579LaunchpadAddress: '0x7579011aB74c46090561ea277Ba79D510c6C00ff',
         attesters: [
           RHINESTONE_ATTESTER_ADDRESS, // Rhinestone Attester
-          MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
+          // MOCK_ATTESTER_ADDRESS, // Mock Attester - do not use in production
         ],
         attestersThreshold: 1,
         saltNonce: createClientData.saltNonce || BigInt(0),

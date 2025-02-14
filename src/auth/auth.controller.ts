@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Req, UseGuards, Res, Logger, Body } from '@nestjs/common';
+import { Controller, Post, Get, Req, UseGuards, Res, Logger, Body, NotFoundException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { WebAuthnStrategy } from './webauthn.strategy.js';
 import { SessionGuard } from './session.guard.js';
@@ -97,6 +97,9 @@ export class AuthController {
       await this.userService.updateUser(user);
     }
 
+    // Store the user ID in the session
+    req.session.userId = user?.customId;
+
     return req.user;
   }
 
@@ -120,5 +123,27 @@ export class AuthController {
       res.clearCookie('connect.sid'); // Clear the session cookie
       return res.send('Logged out');
     });
+  }
+
+  @Get('user')
+  @UseGuards(SessionGuard)
+  async getUser(@Req() req) {
+    // Retrieve the user ID from the session
+    const userId = req.session.userId;
+
+    // Fetch the user from the database using the user ID
+    const user = await this.userService.findOneByCustomId(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Return the user information
+    return {
+      id: user.id,
+      username: user.username,
+      safesByChain: user.safesByChain,
+      // passkey: user.passkey,
+    };
   }
 } 
