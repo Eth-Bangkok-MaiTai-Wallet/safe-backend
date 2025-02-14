@@ -153,7 +153,19 @@ export class SafeController {
     this.logger.log('Configuring sessions');
     this.logger.verbose(data);
 
-    return this.erc7579SafeService.configureSession(data.safeAddress, data.chainId, data.sessionConfig);
+    const userId = req.session.userId;
+
+    if (!userId) {  
+      throw new Error('User not found');
+    }
+
+    const user = await this.userService.findOneByCustomId(userId);
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return this.erc7579SafeService.configureSession(user, data.safeAddress, data.chainId, data.sessionConfig);
   }
 
   // @Post('transact')

@@ -24,6 +24,7 @@ import {
   encodeValidationData,
   getEnableSessionDetails,
 } from '@rhinestone/module-sdk'
+import { User } from '../user/schemas/user.schema.js';
 // necessary imports
 
 @Injectable()
@@ -145,7 +146,7 @@ export class Erc7579SafeService {
     this.logger.log(`Installing scheduled orders validator`);
   }
 
-  async configureSession(safeAddress: Hex, chainId: number, sessionConfig: SafeSessionConfig | null = null, privateKey: Hex | null = null) {
+  async configureSession(user: User, safeAddress: Hex, chainId: number, sessionConfig: SafeSessionConfig | null = null, privateKey: Hex | null = null) {
 
     this.logger.log(`Configuring sessions`);
 
@@ -201,6 +202,19 @@ export class Erc7579SafeService {
     this.logger.verbose(`Session details:`, sessionDetails);
 
     const hash = this.createState(sessionDetails.permissionEnableHash, sessionDetails);
+
+    const safe = user.safesByChain.find(sbc => sbc.chainId === chainId)?.safes.find(s => s.safeAddress === safeAddress);
+
+    if (!safe) {
+      throw new Error('Safe not found');
+    }
+
+    safe.safeModuleSessionConfig?.push({
+      sessionKey: pk,
+      sessionConfigHash: hash,
+    });
+
+    await user.save();
 
     return hash;
 

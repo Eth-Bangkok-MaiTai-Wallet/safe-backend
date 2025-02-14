@@ -3,10 +3,10 @@ import { Document } from 'mongoose';
 
 export class SafeSessionConfig {
   @Prop()
-  owner!: string;
+  sessionKey!: string;
 
   @Prop()
-  threshold!: number;
+  sessionConfigHash!: string;
 }
 
 @Schema({ _id: false })
@@ -26,8 +26,8 @@ export class Safe extends Document {
   @Prop()
   safeModulePasskey?: string;
 
-  @Prop()
-  safeModuleSessionConfig?: SafeSessionConfig;
+  @Prop({ type: [SafeSessionConfig] })
+  safeModuleSessionConfig?: SafeSessionConfig[];
 }
 
 export const SafeSchema = SchemaFactory.createForClass(Safe); 
