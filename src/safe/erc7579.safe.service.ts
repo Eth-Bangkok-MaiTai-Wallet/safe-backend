@@ -216,7 +216,7 @@ export class Erc7579SafeService {
 
     await user.save();
 
-    return hash;
+    return {hash};
 
     // const config = sessionConfig || {
     //   owner: owner.address,
