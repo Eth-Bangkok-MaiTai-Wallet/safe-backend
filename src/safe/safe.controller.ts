@@ -9,10 +9,10 @@ import { PublicKey, Signature, WebAuthnP256 } from 'ox';
 import { SignMetadata } from 'ox/WebAuthnP256';
 import { UserService } from '../user/user.service.js';
 import { Transform, Exclude, Expose, Type } from 'class-transformer';
-import { Safe } from '../user/schemas/safe.schema.js';
+import { Safe, SafeSessionConfig } from '../user/schemas/safe.schema.js';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-
+import { Erc7579SafeService } from './erc7579.safe.service.js';
 // class ModifiedSafeConfigDto extends SafeConfigDto {
 //   @Exclude()
 //   publicKey!: string;
@@ -33,6 +33,7 @@ export class SafeController {
     private readonly configSafeService: ConfigSafeService,
     private readonly transactSafeService: TransactSafeService,
     private readonly userService: UserService,
+    private readonly erc7579SafeService: Erc7579SafeService,
     @InjectModel(Safe.name) private safeModel: Model<Safe>,
   ) {}
 
@@ -145,6 +146,14 @@ export class SafeController {
     const result = await this.transactSafeService.executeSignedUserOperation(data.encodedSignature, data.userOpHashToSign, data.safeAddress, data.chainId);
 
     return result;
+  }
+
+  @Post('configure-session')
+  async configureSession(@Req() req, @Body() data: { safeAddress: Hex, chainId: number, sessionConfig: SafeSessionConfig }) {
+    this.logger.log('Configuring sessions');
+    this.logger.verbose(data);
+
+    return this.erc7579SafeService.configureSession(data.safeAddress, data.chainId, data.sessionConfig);
   }
 
   // @Post('transact')
