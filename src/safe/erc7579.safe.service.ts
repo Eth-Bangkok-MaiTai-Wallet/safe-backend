@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 // import { getOwnableValidator, getOwnableValidatorOwners, getSmartSessionsValidator } from '@rhinestone/module-sdk';
 import { RpcService } from '../rpc/rpc.service.js';
-import { Address, Client, Hex, PublicClient, toBytes, toHex } from 'viem';
+import { Address, Client, encodeFunctionData, Hex, PublicClient, toBytes, toHex } from 'viem';
 import { PasskeyDto } from './safe.dtos.js';
 import { PublicKey } from "ox";
 import { getWebAuthnValidator } from '@rhinestone/module-sdk';
@@ -25,6 +25,8 @@ import {
   getEnableSessionDetails,
 } from '@rhinestone/module-sdk'
 import { User } from '../user/schemas/user.schema.js';
+import { getAccountNonce } from 'permissionless/actions';
+import { entryPoint07Address, getUserOperationHash } from 'viem/account-abstraction';
 // necessary imports
 
 @Injectable()
@@ -177,8 +179,8 @@ export class Erc7579SafeService {
       },
       actions: [
         {
-          actionTarget: '0xa564cB165815937967a7d018B7F34B907B52fcFd' as Address, // an address as the target of the session execution
-          actionTargetSelector: '0x00000000' as Hex, // function selector to be used in the execution, in this case no function selector is used
+          actionTarget: '0x6D7A849791a8E869892f11E01c2A5f3b25a497B6' as Address, // an address as the target of the session execution
+          actionTargetSelector: '0xcfae3217' as Hex, // function selector to be used in the execution, in this case no function selector is used
           actionPolicies: [getSudoPolicy()],
         },
       ],
@@ -216,7 +218,7 @@ export class Erc7579SafeService {
 
     await user.save();
 
-    return {hash};
+    return {hash, passkeyId: JSON.parse(user.safesByChain.find(sbc => sbc.chainId === chainId)?.safes.find(s => s.safeAddress === safeAddress)?.safeModulePasskey!).id};
 
     // const config = sessionConfig || {
     //   owner: owner.address,
@@ -236,4 +238,124 @@ export class Erc7579SafeService {
     //   owners: [owner.address],
     // }
   }
+
+  async signSessionCreation(user: User, safeAddress: Hex, chainId: number, hash: Hex, signature: Hex ) {
+
+    this.logger.log(`Signing session creation`);
+
+    const sessionDetails = this.retrieveState(hash);
+
+    sessionDetails.enableSessionData.enableSession.permissionEnableSig = signature;
+
+    console.log('sessionDetails', sessionDetails);
+
+    const smartAccountClient = await this.rpcService.getSmartAccountClient(chainId, safeAddress);
+
+    const publicClient = this.rpcService.getPublicClient(smartAccountClient.chain.id);
+
+    const account = getAccount({
+      address: smartAccountClient.account!.address,
+      type: 'safe',
+    })
+
+    const smartSessions = getSmartSessionsValidator({})
+    
+    const nonce = await getAccountNonce(publicClient, {
+      address: smartAccountClient.account!.address,
+      entryPointAddress: entryPoint07Address,
+      key: encodeValidatorNonce({
+        account,
+        validator: smartSessions,
+      }),
+    })
+     
+    sessionDetails.signature = getOwnableValidatorMockSignature({
+      threshold: 1,
+    })
+
+    // '0x6D7A849791a8E869892f11E01c2A5f3b25a497B6' as Address, // an address as the target of the session execution
+    //       actionTargetSelector: '0xcfae3217' 
+
+
+      // const calls = [
+      //   {
+      //     to: '0x6D7A849791a8E869892f11E01c2A5f3b25a497B6',
+      //     functionName: 'greet',
+      //     abi: [
+      //       {
+      //         inputs: [],
+      //         name: 'greet', 
+      //         outputs: [],
+      //         stateMutability: 'nonpayable',
+      //         type: 'function',
+      //       },
+      //     ],
+      //     args: [],
+      //   },
+      // ];
+
+    const callData = encodeFunctionData({
+      abi: [
+        {
+          inputs: [],
+          name: 'greet', 
+          outputs: [],
+          stateMutability: 'nonpayable',
+          type: 'function',
+        },
+      ],
+      functionName: 'greet',
+      args: [],
+    });
+     
+    const userOperation = await smartAccountClient.prepareUserOperation({
+      account: smartAccountClient.account!,
+      calls: [
+        {
+          to: '0x6D7A849791a8E869892f11E01c2A5f3b25a497B6' as Address, //session.actions[0].actionTarget,
+          value: BigInt(0),
+          data: callData, // session.actions[0].actionTargetSelector,
+        },
+      ],
+      nonce,
+      signature: encodeSmartSessionSignature(sessionDetails),
+    })
+
+    const userOpHashToSign = getUserOperationHash({
+      chainId: smartAccountClient.chain.id,
+      entryPointAddress: entryPoint07Address,
+      entryPointVersion: '0.7',
+      userOperation,
+    })
+
+    const pk = user.safesByChain.find(sbc => sbc.chainId === chainId)?.safes.find(s => s.safeAddress === safeAddress)?.safeModuleSessionConfig?.find(sc => sc.sessionConfigHash === hash)?.sessionKey;
+
+    console.log('pk', pk);
+
+    const sessionOwner = privateKeyToAccount(pk as Hex);
+     
+    sessionDetails.signature = await sessionOwner.signMessage({
+      message: { raw: userOpHashToSign },
+    })
+     
+    userOperation.signature = encodeSmartSessionSignature(sessionDetails)
+
+    const userOpHash = await smartAccountClient.sendUserOperation(userOperation)
+
+    const pimlicoClient = this.rpcService.getPimlicoClient(smartAccountClient.chain.id);
+ 
+    const receipt = await pimlicoClient.waitForUserOperationReceipt({
+      hash: userOpHash,
+    })
+
+    if (receipt.success) {
+      this.logger.log(`Session creation signed successfully: ${receipt}`);
+    } else {
+      this.logger.error(`Session creation signing failed: ${receipt}`);
+      throw new Error(`Session creation signing failed: ${receipt}`);
+    }
+
+    return {hash: receipt.userOpHash};
+
+  } 
 } 

@@ -168,6 +168,26 @@ export class SafeController {
     return this.erc7579SafeService.configureSession(user, data.safeAddress, data.chainId, data.sessionConfig);
   }
 
+  @Post('sign-session-creation')
+  async signSessionCreation(@Req() req, @Body() data: { hash: Hex, safeAddress: Hex, chainId: number, encodedSignature: Hex }) {
+    this.logger.log('Signing session creation');
+    this.logger.verbose(data);
+
+    const userId = req.session.userId;
+
+    if (!userId) {  
+      throw new Error('User not found');
+    }
+
+    const user = await this.userService.findOneByCustomId(userId);
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return this.erc7579SafeService.signSessionCreation(user, data.safeAddress, data.chainId, data.hash, data.encodedSignature);
+  }
+
   // @Post('transact')
   // async transactSafe(@Body() address: Hex, @Body() chainId: number, @Body() data: TransactSafeDto) {
   //   return this.transactSafeService.transactSafe(address, chainId, data);
