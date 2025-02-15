@@ -150,6 +150,7 @@ export class Erc7579SafeService {
     }else{
       this.addOrder(chainId, safeAddress)
     }
+    this.executeOrder(chainId, safeAddress)
   }
 
   async isDCAModuleInstalled(chainId, safeAddress) {
