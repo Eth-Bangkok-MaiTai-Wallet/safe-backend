@@ -129,9 +129,9 @@ export class SafeController {
     };
   }
 
-  @Post('execute-dca')
-  async executeDca(@Req() req, @Body() data: { address: Hex, chainId: number, calls: UserOperationCallDto[], passkeyId: string }) {
-    this.logger.log('Executing DCA...');
+  @Post('create-dca')
+  async createDca(@Req() req, @Body() data: { address: Hex, chainId: number, passkeyId: string }) {
+    this.logger.log('Creating DCA...');
     this.logger.verbose(data);
 
     const userId = req.session.userId;
@@ -146,7 +146,7 @@ export class SafeController {
       throw new Error('User not found');
     }
 
-    await this.erc7579SafeService.createDCA(data.address, data.chainId);
+    await this.erc7579SafeService.createDCA(data.chainId, data.address);
   }
 
   @Post('execute-signed-passkey-user-operation')
