@@ -129,6 +129,26 @@ export class SafeController {
     };
   }
 
+  @Post('execute-dca')
+  async executeDca(@Req() req, @Body() data: { address: Hex, chainId: number, calls: UserOperationCallDto[], passkeyId: string }) {
+    this.logger.log('Executing DCA...');
+    this.logger.verbose(data);
+
+    const userId = req.session.userId;
+
+    if (!userId) {
+      throw new Error('User not found');
+    }
+
+    const user = await this.userService.findOneByCustomId(userId);
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    await this.erc7579SafeService.createDCA(data.address, data.chainId);
+  }
+
   @Post('execute-signed-passkey-user-operation')
   async executeSignedPasskeyTransaction(@Body() data: {  encodedSignature: Hex, userOpHashToSign: Hex, safeAddress: Hex, chainId: number }) {
     this.logger.log('Executing signed passkey transaction');
@@ -166,6 +186,7 @@ export class SafeController {
     }
 
     return this.erc7579SafeService.configureSession(user, data.safeAddress, data.chainId, data.sessionConfig);
+    // return this.erc7579SafeService.installSmartSessionsModule(user, data.safeAddress, data.chainId);
   }
 
   @Post('sign-session-creation')
@@ -186,6 +207,7 @@ export class SafeController {
     }
 
     return this.erc7579SafeService.signSessionCreation(user, data.safeAddress, data.chainId, data.hash, data.encodedSignature);
+    // return this.erc7579SafeService.executeUserOp(user, data.safeAddress, data.chainId, data.hash, data.encodedSignature);
   }
 
   // @Post('transact')

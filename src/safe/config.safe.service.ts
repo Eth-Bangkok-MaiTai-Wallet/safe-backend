@@ -71,33 +71,33 @@ export class ConfigSafeService {
       await this.erc7579SafeService.installSessionsModule(smartAccountClient);
       
       // brick safe
-      const safeAddress = smartAccountClient.account!.address;
-      const ownerToRemove = privateKeyToAccount(privateKey).address;
-      const unspendableAddress = getUnspendableAddress();
+      // const safeAddress = smartAccountClient.account!.address;
+      // const ownerToRemove = privateKeyToAccount(privateKey).address;
+      // const unspendableAddress = getUnspendableAddress();
 
-      const addOwnerConfig: SafeOwnerConfig = {
-        safeAddress,
-        ownerAddressToAddOrRemove: unspendableAddress,
-        chainId: Number(chainId),
-        threshold: 1,
-        signer: privateKey
-      }
+      // const addOwnerConfig: SafeOwnerConfig = {
+      //   safeAddress,
+      //   ownerAddressToAddOrRemove: unspendableAddress,
+      //   chainId: Number(chainId),
+      //   threshold: 1,
+      //   signer: privateKey
+      // }
 
-      await this.addSafeOwner(addOwnerConfig);
+      // await this.addSafeOwner(addOwnerConfig);
 
-      const removeOwnerConfig: SafeOwnerConfig = {
-        safeAddress,
-        ownerAddressToAddOrRemove: ownerToRemove,
-        chainId: Number(chainId),
-        threshold: 1,
-        signer: privateKey
-      }
+      // const removeOwnerConfig: SafeOwnerConfig = {
+      //   safeAddress,
+      //   ownerAddressToAddOrRemove: ownerToRemove,
+      //   chainId: Number(chainId),
+      //   threshold: 1,
+      //   signer: privateKey
+      // }
 
-      await this.removeSafeOwner(removeOwnerConfig);
+      // await this.removeSafeOwner(removeOwnerConfig);
 
-      const safeOwnersAfter = await this.getSafeOwners(Number(chainId), smartAccountClient.account!.address);
+      const safeOwnersAfter = await this.getSafeOwners(Number(chainId), smartAccountClient.account!.address as Hex);
 
-      this.logger.warn(`Safe owners after brick (unspendable owner ${unspendableAddress}):`, safeOwnersAfter);
+      // this.logger.warn(`Safe owners after brick (unspendable owner ${unspendableAddress}):`, safeOwnersAfter);
 
       // lastClient = smartAccountClient;
       // lastOwners = safeOwnersAfter;

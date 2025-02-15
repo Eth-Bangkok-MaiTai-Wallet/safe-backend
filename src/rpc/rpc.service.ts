@@ -79,7 +79,7 @@ export class RpcService {
 
     const pk = this.configService.get('PRIVATE_KEY') as Hex;
 
-    const creatorAccount =privateKeyToAccount(pk);
+    const creatorAccount = privateKeyToAccount(pk);
 
     const safeAccount = await toSafeSmartAccount({
       client: this.getPublicClient(chainId),
